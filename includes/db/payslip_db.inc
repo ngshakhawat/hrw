@@ -108,24 +108,26 @@ function write_payslip(&$cart, $reverse, $use_transaction=true) {
 
 //--------------------------------------------------------------------------
 
+
 function get_sql_for_payslips($from, $to, $ref=false, $memo=false, $dept=0, $emp_id=0, $unpaid_only=false) {
 
 	$sql = "SELECT
 		P.generated_date,
 		P.trans_no,
+		P.trans_type,
 		P.type AS Type,
 		e.emp_id,
 		CONCAT(e.emp_first_name,' ',e.emp_last_name) as emp_name,
 		P.payslip_no,
 		P.from_date,
 		P.to_date,
-		P.payable_amount,
+		P.payable_amount as amount,
 		
 		COUNT(P.payslip_no) AS Paid 
 		
-		FROM (SELECT p.generated_date, p.emp_id, p.trans_no, p.payslip_no, p.from_date, p.to_date, p.payable_amount, 0 AS type FROM ".TB_PREF."payslip p 
-			UNION SELECT t.pay_date, p2.emp_id, t.trans_no, t.payslip_no, p2.from_date, p2.to_date, t.pay_amount, 1 FROM ".TB_PREF."employee_trans t, ".TB_PREF."payslip p2 WHERE t.payslip_no != 0 AND t.payslip_no = p2.payslip_no
-			UNION SELECT t2.pay_date, av.emp_id, t2.trans_no, 0, NULL, NULL, t2.pay_amount, 1 FROM ".TB_PREF."employee_trans t2, ".TB_PREF."employee_advance av WHERE t2.id = av.emp_trans_no) P 
+		FROM (SELECT p.generated_date, p.emp_id, p.trans_no, 0 as trans_type, p.payslip_no, p.from_date, p.to_date, p.payable_amount, 0 AS type FROM ".TB_PREF."payslip p 
+			UNION SELECT t.pay_date, p2.emp_id, t.trans_no, t.trans_type, t.payslip_no, p2.from_date, p2.to_date, t.pay_amount, 1 FROM ".TB_PREF."employee_trans t, ".TB_PREF."payslip p2 WHERE t.payslip_no != 0 AND t.payslip_no = p2.payslip_no
+			UNION SELECT t2.pay_date, av.emp_id, t2.trans_no, t2.trans_type, 0 as payslip_no, NULL as from_date, NULL as to_date, t2.pay_amount, 1 FROM ".TB_PREF."employee_trans t2, ".TB_PREF."employee_advance av WHERE t2.id = av.emp_trans_no) P 
 		
 		LEFT JOIN ".TB_PREF."employee e ON P.emp_id = e.emp_id 
 		LEFT JOIN ".TB_PREF."journal j ON j.trans_no = P.trans_no 
@@ -134,22 +136,23 @@ function get_sql_for_payslips($from, $to, $ref=false, $memo=false, $dept=0, $emp
 
 		WHERE P.generated_date BETWEEN '".date2sql($from)."' AND '" . date2sql($to) . "'";
 
-		if ($ref)
-			$sql .= " AND j.reference LIKE ". db_escape("%$ref%");
-		if ($memo)
-			$sql .= " AND c.memo_ LIKE ". db_escape("%$memo%");
-		if($dept != 0)
-			$sql .= " AND e.department_id = ".db_escape($dept);
-		if($emp_id != 0)
-			$sql .= " AND e.emp_id = ".db_escape($emp_id);
+	if ($ref)
+		$sql .= " AND j.reference LIKE ". db_escape("%$ref%");
+	if ($memo)
+		$sql .= " AND c.memo_ LIKE ". db_escape("%$memo%");
+	if($dept != 0)
+		$sql .= " AND e.department_id = ".db_escape($dept);
+	if($emp_id != 0)
+		$sql .= " AND e.emp_id = ".db_escape($emp_id);
 
-		if($unpaid_only)
-			$sql .= " AND payslip_no != 0 GROUP BY P.payslip_no HAVING Paid = 1";
-		else
-			$sql .= " GROUP BY P.trans_no, P.type";
+	if($unpaid_only)
+		$sql .= " AND payslip_no != 0 GROUP BY P.payslip_no HAVING Paid = 1";
+	else
+		$sql .= " GROUP BY P.trans_no, P.type";
 
 	return $sql;
 }
+
 
 //--------------------------------------------------------------------------
 
